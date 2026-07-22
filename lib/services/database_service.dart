@@ -22,6 +22,7 @@ class DatabaseService {
   static final Map<String, String> _mockPasswordsDb = {
     'admin@cityemergency.org': 'Password123!',
     'admin@stmary.org': 'Password123!',
+    'shettyprakyath@gmail.com': 'Password123!',
     'driver@guard.com': 'Password123!',
   };
 
@@ -29,10 +30,10 @@ class DatabaseService {
   static final List<Map<String, dynamic>> _mockDrivers = [
     {
       'uid': 'mock_driver_1',
-      'email': 'driver@guard.com',
-      'fullName': 'Accident Guard Driver',
+      'email': 'shettyprakyath@gmail.com',
+      'fullName': 'Prakyath',
       'bloodGroup': 'O+',
-      'parentPhone': '+15005550006',
+      'parentPhone': '+919113895419',
       'role': 'driver',
     }
   ];
@@ -42,7 +43,7 @@ class DatabaseService {
       'uid': 'mock_hosp_1',
       'facilityName': 'City Emergency Hospital',
       'email': 'admin@cityemergency.org',
-      'dispatchPhone': '+15005550006', // standard Twilio test number
+      'dispatchPhone': '+919113895419', // Default dispatch redirects to Prakyath
       'latitude': 12.9716, // Bangalore coordinates
       'longitude': 77.5946,
       'role': 'hospital',
@@ -51,7 +52,7 @@ class DatabaseService {
       'uid': 'mock_hosp_2',
       'facilityName': 'St. Mary General Hospital',
       'email': 'admin@stmary.org',
-      'dispatchPhone': '+15005550006',
+      'dispatchPhone': '+919113895419',
       'latitude': 12.9279,
       'longitude': 77.6271,
       'role': 'hospital',

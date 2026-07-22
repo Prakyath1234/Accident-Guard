@@ -96,14 +96,14 @@ class AlertService {
         : "Unknown Hospital";
     String hospitalPhone = nearestHospital != null
         ? nearestHospital['dispatchPhone']
-        : "+15005550006";
+        : "+919113895419";
 
     print("AlertService: Nearest Hospital is $hospitalName, distance: ${shortestDistance.toStringAsFixed(2)} meters");
 
     // 3. Format SMS payloads
-    final String name = userProfile['fullName'] ?? "Unknown Driver";
-    final String bloodGroup = userProfile['bloodGroup'] ?? "Unknown";
-    final String parentPhone = userProfile['parentPhone'] ?? "+15005550006";
+    final String name = userProfile['fullName'] ?? "Prakyath";
+    final String bloodGroup = userProfile['bloodGroup'] ?? "O+";
+    final String parentPhone = userProfile['parentPhone'] ?? "+919113895419";
     final String googleMapsLink = "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
 
     final String parentMsg =

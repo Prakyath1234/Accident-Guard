@@ -16,8 +16,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   late TabController _tabController;
   final _formKey = GlobalKey<FormState>();
 
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _emailController = TextEditingController(text: "shettyprakyath@gmail.com");
+  final _passwordController = TextEditingController(text: "Password123!");
 
   final DatabaseService _dbService = DatabaseService();
   bool _isLoading = false;
@@ -27,6 +27,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        if (_tabController.index == 0) {
+          _emailController.text = "shettyprakyath@gmail.com";
+        } else {
+          _emailController.text = "admin@cityemergency.org";
+        }
+        _passwordController.text = "Password123!";
+      }
+    });
 
     // Auto-login check if session already exists
     WidgetsBinding.instance.addPostFrameCallback((_) {
