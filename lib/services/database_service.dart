@@ -22,6 +22,8 @@ class DatabaseService {
   static final Map<String, String> _mockPasswordsDb = {
     'admin@cityemergency.org': 'Password123!',
     'admin@stmary.org': 'Password123!',
+    'shettyprakyathp@gmail.com': 'Password123!',
+    'vaibhava.23cs179@sode-edu.in': '9731971568',
     'shettyprakyath@gmail.com': 'Password123!',
     'driver@guard.com': 'Password123!',
   };
@@ -30,10 +32,18 @@ class DatabaseService {
   static final List<Map<String, dynamic>> _mockDrivers = [
     {
       'uid': 'mock_driver_1',
-      'email': 'shettyprakyath@gmail.com',
+      'email': 'shettyprakyathp@gmail.com',
       'fullName': 'Prakyath',
       'bloodGroup': 'O+',
-      'parentPhone': '+919113895419',
+      'parentPhone': '+919113895413',
+      'role': 'driver',
+    },
+    {
+      'uid': 'mock_driver_2',
+      'email': 'vaibhava.23cs179@sode-edu.in',
+      'fullName': 'Vaibhava',
+      'bloodGroup': 'A+',
+      'parentPhone': '+919731971568',
       'role': 'driver',
     }
   ];
@@ -43,7 +53,7 @@ class DatabaseService {
       'uid': 'mock_hosp_1',
       'facilityName': 'City Emergency Hospital',
       'email': 'admin@cityemergency.org',
-      'dispatchPhone': '+919113895419', // Default dispatch redirects to Prakyath
+      'dispatchPhone': '+919113895413', // Default dispatch redirects to Prakyath
       'latitude': 12.9716, // Bangalore coordinates
       'longitude': 77.5946,
       'role': 'hospital',
@@ -52,7 +62,7 @@ class DatabaseService {
       'uid': 'mock_hosp_2',
       'facilityName': 'St. Mary General Hospital',
       'email': 'admin@stmary.org',
-      'dispatchPhone': '+919113895419',
+      'dispatchPhone': '+919731971568', // Default dispatch redirects to Vaibhava
       'latitude': 12.9279,
       'longitude': 77.6271,
       'role': 'hospital',

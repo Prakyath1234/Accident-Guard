@@ -49,28 +49,29 @@ class _SensorMonitoringState extends State<SensorMonitoring> {
   }
 
   Future<void> _loadDrivers() async {
-    // Attempt to load registered drivers from database_service mock/live
-    // For presentation convenience, if none are found, we register a default presentation profile
     try {
-      // In a real app we query users collection. Let's create a default driver profile for testing.
-      final defaultDriver = {
-        'uid': 'default_driver_presentation',
-        'fullName': 'John Doe (Demo)',
-        'bloodGroup': 'AB-',
-        'parentPhone': '+15005550006', // standard Twilio test number
-        'email': 'johndoe@demo.com',
-      };
-      
-      setState(() {
-        _availableDrivers = [defaultDriver];
-        _selectedDriver = defaultDriver;
-      });
-
-      // Try fetching from firestore users if possible
-      // (This will add any dynamically created users to the dropdown list)
-      final allHospitals = await _dbService.getHospitals(); // check if we can query DB
-      // We will look for drivers if we have an endpoint, but since drivers can be created in UserRegistration,
-      // let's fetch current driver if registered.
+      final activeUser = _dbService.activeSessionUser;
+      if (activeUser != null) {
+        setState(() {
+          _availableDrivers = [activeUser];
+          _selectedDriver = activeUser;
+        });
+        _addLog("Active Driver profile loaded: ${activeUser['fullName']} (${activeUser['email']})");
+      } else {
+        final defaultDriver = {
+          'uid': 'mock_driver_1',
+          'email': 'shettyprakyathp@gmail.com',
+          'fullName': 'Prakyath',
+          'bloodGroup': 'O+',
+          'parentPhone': '+919113895413',
+          'role': 'driver',
+        };
+        setState(() {
+          _availableDrivers = [defaultDriver];
+          _selectedDriver = defaultDriver;
+        });
+        _addLog("No active session. Loaded default profile: Prakyath");
+      }
     } catch (e) {
       print("SensorMonitoring: Load drivers error: $e");
     }

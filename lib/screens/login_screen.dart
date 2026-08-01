@@ -16,7 +16,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   late TabController _tabController;
   final _formKey = GlobalKey<FormState>();
 
-  final _emailController = TextEditingController(text: "shettyprakyath@gmail.com");
+  final _emailController = TextEditingController(text: "shettyprakyathp@gmail.com");
   final _passwordController = TextEditingController(text: "Password123!");
 
   final DatabaseService _dbService = DatabaseService();
@@ -31,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         if (_tabController.index == 0) {
-          _emailController.text = "shettyprakyath@gmail.com";
+          _emailController.text = "shettyprakyathp@gmail.com";
         } else {
           _emailController.text = "admin@cityemergency.org";
         }
