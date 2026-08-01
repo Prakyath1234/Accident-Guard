@@ -427,6 +427,18 @@ class DatabaseService {
     return List.from(_mockCrashReports.reversed);
   }
 
+  Future<List<Map<String, dynamic>>> getDrivers() async {
+    if (_isFirebaseAvailable()) {
+      try {
+        final snapshot = await _firestore.collection('users').get();
+        return snapshot.docs.map((doc) => doc.data()).toList();
+      } catch (e) {
+        print("DatabaseService: Firestore getDrivers failed: $e");
+      }
+    }
+    return _mockDrivers;
+  }
+
   Future<void> updateCrashReportStatus(String reportId, String status) async {
     if (_isFirebaseAvailable()) {
       try {
@@ -495,5 +507,16 @@ class DatabaseService {
     if (_prefs != null) {
       await _prefs!.setString('email_dispatcher_url', url);
     }
+  }
+
+  Future<void> saveAdminSession(String email) async {
+    _activeSessionUser = {
+      'uid': 'admin_session_${email.split('@')[0]}',
+      'email': email,
+      'fullName': email.toLowerCase().contains('prakyath') ? 'Prakyath (Admin)' : 'Vaibhava (Admin)',
+      'role': 'admin',
+    };
+    _activeSessionRole = 'admin';
+    await _saveToPrefs();
   }
 }

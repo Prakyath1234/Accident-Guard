@@ -4,6 +4,7 @@ import 'user_registration.dart';
 import 'hospital_registration.dart';
 import 'control_panel.dart';
 import 'hospital_dashboard.dart';
+import 'admin_dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -26,16 +27,22 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
-        if (_tabController.index == 0) {
-          _emailController.text = "shettyprakyathp@gmail.com";
-        } else {
-          _emailController.text = "admin@cityemergency.org";
-        }
-        _passwordController.text = "Password123!";
+        setState(() {
+          if (_tabController.index == 0) {
+            _emailController.text = "shettyprakyathp@gmail.com";
+            _passwordController.text = "Password123!";
+          } else if (_tabController.index == 1) {
+            _emailController.text = "admin@cityemergency.org";
+            _passwordController.text = "Password123!";
+          } else {
+            _emailController.text = "shettyprakyathp@gmail.com";
+            _passwordController.text = "Password123!";
+          }
+        });
       }
     });
 
@@ -52,6 +59,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HospitalDashboard()),
+          );
+        } else if (role == 'admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminDashboard()),
           );
         }
       }
@@ -73,19 +85,39 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
-    final role = _tabController.index == 0 ? 'driver' : 'hospital';
+    
+    final String role;
+    if (_tabController.index == 0) {
+      role = 'driver';
+    } else if (_tabController.index == 1) {
+      role = 'hospital';
+    } else {
+      role = 'admin';
+    }
 
     try {
-      final userProfile = await _dbService.login(
-        email: email,
-        password: password,
-        role: role,
-      );
+      if (role == 'admin') {
+        final cleanEmail = email.toLowerCase();
+        final bool isUser1 = cleanEmail == 'shettyprakyathp@gmail.com' && password == 'Password123!';
+        final bool isUser2 = cleanEmail == 'vaibhava.23cs179@sode-edu.in' && password == '9731971568';
+
+        if (!isUser1 && !isUser2) {
+          throw Exception("Access Denied: Only authorized administrators are allowed.");
+        }
+
+        await _dbService.saveAdminSession(email);
+      } else {
+        await _dbService.login(
+          email: email,
+          password: password,
+          role: role,
+        );
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Logged in successfully as ${role == 'driver' ? 'Driver' : 'Hospital Hub'}!"),
+            content: Text("Logged in successfully as ${role == 'driver' ? 'Driver' : role == 'hospital' ? 'Hospital Hub' : 'Admin'}!"),
             backgroundColor: Colors.green,
           ),
         );
@@ -96,10 +128,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             context,
             MaterialPageRoute(builder: (context) => const ControlPanel()),
           );
-        } else {
+        } else if (role == 'hospital') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HospitalDashboard()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminDashboard()),
           );
         }
       }
@@ -107,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Login failed: ${e.toString()}"),
+            content: Text("Login failed: ${e.toString().replaceAll('Exception:', '')}"),
             backgroundColor: Colors.red,
           ),
         );
@@ -188,6 +225,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               tabs: const [
                                 Tab(text: "Driver Portal", icon: Icon(Icons.drive_eta)),
                                 Tab(text: "Hospital Hub", icon: Icon(Icons.local_hospital)),
+                                Tab(text: "Admin Console", icon: Icon(Icons.admin_panel_settings)),
                               ],
                             ),
                             const SizedBox(height: 24),
@@ -248,31 +286,33 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             const SizedBox(height: 20),
 
                             // Signup Redirection Switcher
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text("Don't have an account? ", style: TextStyle(color: Colors.white70)),
-                                TextButton(
-                                  onPressed: () {
-                                    if (_tabController.index == 0) {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (context) => const UserRegistration()),
-                                      );
-                                    } else {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (context) => const HospitalRegistration()),
-                                      );
-                                    }
-                                  },
-                                  child: const Text(
-                                    "Create Profile",
-                                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                            if (_tabController.index != 2) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text("Don't have an account? ", style: TextStyle(color: Colors.white70)),
+                                  TextButton(
+                                    onPressed: () {
+                                      if (_tabController.index == 0) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => const UserRegistration()),
+                                        );
+                                      } else {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => const HospitalRegistration()),
+                                        );
+                                      }
+                                    },
+                                    child: const Text(
+                                      "Create Profile",
+                                      style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
