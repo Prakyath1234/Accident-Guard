@@ -14,6 +14,7 @@ class _UserRegistrationState extends State<UserRegistration> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _parentPhoneController = TextEditingController();
+  final _parentEmailController = TextEditingController();
 
   final DatabaseService _dbService = DatabaseService();
 
@@ -28,6 +29,16 @@ class _UserRegistrationState extends State<UserRegistration> {
   // Password regex: at least 1 uppercase letter, 1 number, 1 special character, and min 8 characters
   final RegExp _passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*\d)(?=.*[!@#\$%^&*(),.?":{}|<>]).{8,}$');
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _parentPhoneController.dispose();
+    _parentEmailController.dispose();
+    super.dispose();
+  }
+
   void _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -37,6 +48,7 @@ class _UserRegistrationState extends State<UserRegistration> {
     final String email = _emailController.text.trim();
     final String password = _passwordController.text.trim();
     final String phone = _parentPhoneController.text.trim();
+    final String parentEmail = _parentEmailController.text.trim();
 
     try {
       // 1. Create authentication credential (attempts Firebase signup, falls back gracefully)
@@ -61,6 +73,7 @@ class _UserRegistrationState extends State<UserRegistration> {
         name: name,
         bloodGroup: _selectedBloodGroup,
         parentPhone: phone,
+        parentEmail: parentEmail.isNotEmpty ? parentEmail : null,
       );
 
       if (mounted) {
@@ -218,6 +231,24 @@ class _UserRegistrationState extends State<UserRegistration> {
                       labelText: "Parent Emergency Phone",
                       prefixIcon: Icon(Icons.phone_outlined),
                       helperText: "Must start with country code (e.g. +1... or +91...)",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Parent Emergency Email
+                  TextFormField(
+                    controller: _parentEmailController,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (val) {
+                      if (val != null && val.trim().isNotEmpty) {
+                        if (!val.contains('@') || !val.contains('.')) return "Please enter a valid email";
+                      }
+                      return null;
+                    },
+                    decoration: const InputDecoration(
+                      labelText: "Parent Emergency Email (Optional)",
+                      prefixIcon: Icon(Icons.email_outlined),
                       border: OutlineInputBorder(),
                     ),
                   ),

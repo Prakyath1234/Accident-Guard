@@ -18,8 +18,10 @@ class _ControlPanelState extends State<ControlPanel> {
   final _sidController = TextEditingController();
   final _tokenController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _emailUrlController = TextEditingController();
   
   bool _isTwilioConfigured = false;
+  bool _isEmailConfigured = false;
 
   Map<String, dynamic> get _driverProfile => _dbService.activeSessionUser ?? {
     'fullName': 'John Doe (Demo)',
@@ -31,6 +33,8 @@ class _ControlPanelState extends State<ControlPanel> {
   @override
   void initState() {
     super.initState();
+    _emailUrlController.text = _dbService.getEmailDispatcherUrl() ?? '';
+    _isEmailConfigured = _emailUrlController.text.trim().isNotEmpty;
     _updateTwilioConfig();
   }
 
@@ -39,6 +43,7 @@ class _ControlPanelState extends State<ControlPanel> {
     _sidController.dispose();
     _tokenController.dispose();
     _phoneController.dispose();
+    _emailUrlController.dispose();
     super.dispose();
   }
 
@@ -53,6 +58,16 @@ class _ControlPanelState extends State<ControlPanel> {
           _tokenController.text.trim().isNotEmpty &&
           _phoneController.text.trim().isNotEmpty;
     });
+  }
+
+  void _updateEmailConfig() {
+    _dbService.saveEmailDispatcherUrl(_emailUrlController.text.trim());
+    setState(() {
+      _isEmailConfigured = _emailUrlController.text.trim().isNotEmpty;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Email Webhook URL applied!")),
+    );
   }
 
   void _logout() {
@@ -141,14 +156,21 @@ class _ControlPanelState extends State<ControlPanel> {
                               ],
                             ),
                             Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text("Emergency Parent Phone", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                const Text("Emergency Parent Info", style: TextStyle(color: Colors.white54, fontSize: 12)),
                                 const SizedBox(height: 4),
                                 Text(
                                   _driverProfile['parentPhone'] ?? '+15005550006',
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                 ),
+                                if (_driverProfile['parentEmail'] != null && _driverProfile['parentEmail'].toString().isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _driverProfile['parentEmail'],
+                                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                  ),
+                                ],
                               ],
                             ),
                           ],
@@ -239,6 +261,65 @@ class _ControlPanelState extends State<ControlPanel> {
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: _updateTwilioConfig,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white10,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text("Save & Apply Config"),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Email config section
+                Card(
+                  color: Colors.black.withOpacity(0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: Colors.white10),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              _isEmailConfigured ? Icons.mark_email_read : Icons.mail_outline,
+                              color: _isEmailConfigured ? Colors.greenAccent : Colors.orangeAccent,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              "Email Dispatcher Config",
+                              style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _isEmailConfigured
+                              ? "Gmail Fallback Alerts Active"
+                              : "Running in Email Simulator mode (Logs instead). Enter a Google Apps Webhook URL to dispatch real emails.",
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: _isEmailConfigured ? Colors.greenAccent.withOpacity(0.8) : Colors.white60,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _emailUrlController,
+                          decoration: const InputDecoration(
+                            labelText: "Google Apps Script URL",
+                            helperText: "Paste your published Apps Script Web App URL",
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _updateEmailConfig,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white10,
                             foregroundColor: Colors.white,

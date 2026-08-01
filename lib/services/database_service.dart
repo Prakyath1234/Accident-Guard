@@ -186,6 +186,7 @@ class DatabaseService {
     required String name,
     required String bloodGroup,
     required String parentPhone,
+    String? parentEmail,
   }) async {
     final userData = {
       'uid': uid,
@@ -193,6 +194,7 @@ class DatabaseService {
       'fullName': name,
       'bloodGroup': bloodGroup,
       'parentPhone': parentPhone,
+      'parentEmail': parentEmail ?? email,
       'role': 'driver',
     };
 
@@ -483,5 +485,15 @@ class DatabaseService {
       }
     }
     return null;
+  }
+
+  String? getEmailDispatcherUrl() {
+    return _prefs?.getString('email_dispatcher_url') ?? '';
+  }
+
+  Future<void> saveEmailDispatcherUrl(String url) async {
+    if (_prefs != null) {
+      await _prefs!.setString('email_dispatcher_url', url);
+    }
   }
 }

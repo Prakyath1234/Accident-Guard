@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:twilio_flutter/twilio_flutter.dart';
 import 'database_service.dart';
@@ -126,15 +128,40 @@ class AlertService {
       print("AlertService: Failed to create database crash report: $e");
     }
 
-    // 5. Dispatch texts
+    // 5. Dispatch alerts (SMS & Email)
     bool parentSent = false;
     bool hospitalSent = false;
+    bool emailSent = false;
 
-    // Send Alert 1: Parent
+    // Send Alert 1: Parent SMS
     parentSent = await _sendSms(parentPhone, parentMsg);
 
-    // Send Alert 2: Nearest Hospital Dispatch
+    // Send Alert 2: Nearest Hospital SMS
     hospitalSent = await _sendSms(hospitalPhone, hospitalMsg);
+
+    // Send Alert 3: Email alerts (Parent & Hospital)
+    final String parentEmail = userProfile['parentEmail'] ?? userProfile['email'] ?? "parent@email.com";
+    final String hospitalEmail = nearestHospital != null ? nearestHospital['email'] : "hospital@email.com";
+
+    emailSent = await _sendEmail(
+      parentEmail: parentEmail,
+      hospitalEmail: hospitalEmail,
+      subject: "🚨 CRITICAL ACCIDENT ALERT: $name",
+      body: "An accident was detected for $name.\n\n"
+            "Driver Details:\n"
+            "- Name: $name\n"
+            "- Blood Group: $bloodGroup\n"
+            "- Parent Phone: $parentPhone\n"
+            "- Parent Email: $parentEmail\n"
+            "- Device: Driver Mobile App\n\n"
+            "Crash Telemetry:\n"
+            "- Impact Severity: $crashType\n"
+            "- Exact Latitude: $lat\n"
+            "- Exact Longitude: $lng\n\n"
+            "Google Maps Emergency Routing Link:\n"
+            "$googleMapsLink\n\n"
+            "This is an automated distress broadcast from the Accident Guard System."
+    );
 
     return {
       'lat': lat,
@@ -147,7 +174,53 @@ class AlertService {
       'hospitalMessage': hospitalMsg,
       'parentSent': parentSent,
       'hospitalSent': hospitalSent,
+      'emailSent': emailSent,
+      'parentEmail': parentEmail,
+      'hospitalEmail': hospitalEmail,
     };
+  }
+
+  // Internal Email dispatcher with Webhook fallback
+  Future<bool> _sendEmail({
+    required String parentEmail,
+    required String hospitalEmail,
+    required String subject,
+    required String body,
+  }) async {
+    final String? emailUrl = _dbService.getEmailDispatcherUrl();
+    if (emailUrl == null || emailUrl.isEmpty) {
+      print("AlertService: Email Dispatcher Webhook URL not configured. Running in Mock Email mode.");
+      print("=================== EMAIL ALERT SIMULATOR ===================");
+      print("To Parent Email: $parentEmail");
+      print("To Hospital Email: $hospitalEmail");
+      print("Subject: $subject");
+      print("Body:\n$body");
+      print("=============================================================");
+      return true;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse(emailUrl),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "parentEmail": parentEmail,
+          "hospitalEmail": hospitalEmail,
+          "subject": subject,
+          "body": body,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print("AlertService: Emergency emails successfully dispatched via Webhook.");
+        return true;
+      } else {
+        print("AlertService: Email Webhook failed with status code ${response.statusCode}: ${response.body}");
+      }
+    } catch (e) {
+      print("AlertService: Exception during email dispatch HTTP request: $e");
+    }
+    return false;
   }
 
   // Internal SMS dispatcher with fallback logging
