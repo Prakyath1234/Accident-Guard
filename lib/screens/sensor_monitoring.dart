@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/sensor_service.dart';
 import '../services/database_service.dart';
 import '../services/alert_service.dart';
@@ -77,6 +78,28 @@ class _SensorMonitoringState extends State<SensorMonitoring> {
     }
   }
 
+  Future<void> _updateEngineState(bool isActive) async {
+    if (_selectedDriver == null) return;
+    double lat = 12.9716;
+    double lng = 77.5946;
+    try {
+      Position? pos = await Geolocator.getLastKnownPosition();
+      if (pos == null) {
+        pos = await Geolocator.getCurrentPosition(timeLimit: const Duration(seconds: 4));
+      }
+      lat = pos.latitude;
+      lng = pos.longitude;
+    } catch (_) {}
+
+    await _dbService.logEngineState(
+      email: _selectedDriver!['email'] ?? 'driver@guard.com',
+      driverName: _selectedDriver!['fullName'] ?? 'Driver',
+      isEngineActive: isActive,
+      latitude: lat,
+      longitude: lng,
+    );
+  }
+
   void _toggleSensorEngine() {
     if (_isEngineActive) {
       _sensorService.stopListening();
@@ -84,6 +107,7 @@ class _SensorMonitoringState extends State<SensorMonitoring> {
         _isEngineActive = false;
         _currentForce = 0.0;
       });
+      _updateEngineState(false);
       _addLog("Telemetry engine deactivated.");
     } else {
       if (_selectedDriver == null) {
@@ -96,6 +120,7 @@ class _SensorMonitoringState extends State<SensorMonitoring> {
         _isEngineActive = true;
         _maxForceObserved = 0.0;
       });
+      _updateEngineState(true);
       _addLog("Telemetry engine listening for G-force events...");
       
       _sensorService.startListening(

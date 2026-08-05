@@ -16,12 +16,13 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
   List<Map<String, dynamic>> _crashes = [];
   List<Map<String, dynamic>> _drivers = [];
   List<Map<String, dynamic>> _hospitals = [];
+  List<Map<String, dynamic>> _engineStates = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _fetchData();
   }
 
@@ -37,11 +38,13 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
       final crashesData = await _dbService.getCrashReports();
       final driversData = await _dbService.getDrivers();
       final hospitalsData = await _dbService.getHospitals();
+      final engineStatesData = await _dbService.getEngineStates();
 
       setState(() {
         _crashes = crashesData;
         _drivers = driversData;
         _hospitals = hospitalsData;
+        _engineStates = engineStatesData;
         _isLoading = false;
       });
     } catch (e) {
@@ -149,6 +152,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                           unselectedLabelColor: Colors.white60,
                           tabs: const [
                             Tab(text: "Accidents", icon: Icon(Icons.warning, size: 20)),
+                            Tab(text: "Live Monitor", icon: Icon(Icons.radar, size: 20)),
                             Tab(text: "Drivers", icon: Icon(Icons.people, size: 20)),
                             Tab(text: "Hospitals", icon: Icon(Icons.business, size: 20)),
                           ],
@@ -163,6 +167,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                         controller: _tabController,
                         children: [
                           _buildAccidentsTab(theme),
+                          _buildLiveMonitorTab(theme),
                           _buildDriversTab(theme),
                           _buildHospitalsTab(theme),
                         ],
@@ -375,6 +380,90 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
           ),
         );
       },
+    );
+  }
+  Widget _buildLiveMonitorTab(ThemeData theme) {
+    final activeEngines = _engineStates.where((state) => state['isEngineActive'] == true).toList();
+    final inactiveEngines = _engineStates.where((state) => state['isEngineActive'] == false).toList();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Active Monitoring: ${activeEngines.length}",
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.greenAccent),
+              ),
+              Text(
+                "Inactive: ${inactiveEngines.length}",
+                style: const TextStyle(color: Colors.white60, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _engineStates.isEmpty
+              ? const Center(
+                  child: Text("No live engine monitoring logs found.", style: TextStyle(color: Colors.white60)),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  itemCount: _engineStates.length,
+                  itemBuilder: (context, index) {
+                    final state = _engineStates[index];
+                    final bool isActive = state['isEngineActive'] == true;
+
+                    return Card(
+                      color: Colors.white.withOpacity(0.04),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(
+                          color: isActive ? Colors.greenAccent.withOpacity(0.4) : Colors.white10,
+                        ),
+                      ),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isActive ? Colors.green.withOpacity(0.2) : Colors.white10,
+                          child: Icon(
+                            Icons.sensors,
+                            color: isActive ? Colors.greenAccent : Colors.white54,
+                          ),
+                        ),
+                        title: Text(
+                          state['driverName'] ?? 'Unknown Driver',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        subtitle: Text(
+                          "Email: ${state['email']}\n"
+                          "Last GPS: ${state['latitude']}, ${state['longitude']}\n"
+                          "Updated: ${state['timestamp']}",
+                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (isActive ? Colors.green : Colors.red).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            isActive ? "ENGINE RUNNING" : "ENGINE STOPPED",
+                            style: TextStyle(
+                              color: isActive ? Colors.greenAccent : Colors.redAccent,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

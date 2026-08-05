@@ -70,6 +70,7 @@ class DatabaseService {
   ];
 
   static final List<Map<String, dynamic>> _mockCrashReports = [];
+  static final List<Map<String, dynamic>> _mockEngineStates = [];
   static Map<String, dynamic>? _mockCurrentUser;
 
   // Global static init
@@ -131,6 +132,18 @@ class DatabaseService {
         }
       }
 
+      // 4.5. Mock Engine States
+      final engineStatesStr = _prefs!.getString('mock_engine_states');
+      if (engineStatesStr != null) {
+        final List<dynamic> decodedList = jsonDecode(engineStatesStr);
+        _mockEngineStates.clear();
+        for (var item in decodedList) {
+          if (item is Map) {
+            _mockEngineStates.add(Map<String, dynamic>.from(item));
+          }
+        }
+      }
+
       // 5. Active Session
       final activeSessionUserStr = _prefs!.getString('active_session_user');
       if (activeSessionUserStr != null) {
@@ -151,6 +164,7 @@ class DatabaseService {
       await _prefs!.setString('mock_drivers', jsonEncode(_mockDrivers));
       await _prefs!.setString('mock_hospitals', jsonEncode(_mockHospitals));
       await _prefs!.setString('mock_crash_reports', jsonEncode(_mockCrashReports));
+      await _prefs!.setString('mock_engine_states', jsonEncode(_mockEngineStates));
       if (_activeSessionUser != null) {
         await _prefs!.setString('active_session_user', jsonEncode(_activeSessionUser));
       } else {
@@ -518,5 +532,50 @@ class DatabaseService {
     };
     _activeSessionRole = 'admin';
     await _saveToPrefs();
+  }
+
+  Future<void> logEngineState({
+    required String email,
+    required String driverName,
+    required bool isEngineActive,
+    required double latitude,
+    required double longitude,
+  }) async {
+    final stateData = {
+      'email': email,
+      'driverName': driverName,
+      'isEngineActive': isEngineActive,
+      'latitude': latitude,
+      'longitude': longitude,
+      'timestamp': DateTime.now().toString(),
+    };
+
+    if (_isFirebaseAvailable()) {
+      try {
+        await _firestore.collection('engine_states').doc(email).set({
+          ...stateData,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+        return;
+      } catch (e) {
+        print("DatabaseService: Firestore logEngineState failed: $e");
+      }
+    }
+
+    _mockEngineStates.removeWhere((item) => item['email'].toLowerCase() == email.toLowerCase());
+    _mockEngineStates.add(stateData);
+    await _saveToPrefs();
+  }
+
+  Future<List<Map<String, dynamic>>> getEngineStates() async {
+    if (_isFirebaseAvailable()) {
+      try {
+        final snapshot = await _firestore.collection('engine_states').get();
+        return snapshot.docs.map((doc) => doc.data()).toList();
+      } catch (e) {
+        print("DatabaseService: Firestore getEngineStates failed: $e");
+      }
+    }
+    return _mockEngineStates;
   }
 }
