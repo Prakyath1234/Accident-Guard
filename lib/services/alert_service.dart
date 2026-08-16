@@ -224,7 +224,10 @@ class AlertService {
     final String username = prefs.getString('smtp_email') ?? 'accidentguard@gmail.com';
     final String password = prefs.getString('smtp_password') ?? 'Shetty@123';
 
-    final smtpServer = gmail(username, password);
+    // Remove any spaces from App Password (e.g. "lvbb emvy vcdq zidk" becomes "lvbbemvyvcdqzidk")
+    final String cleanPassword = password.replaceAll(' ', '');
+
+    final smtpServer = gmail(username, cleanPassword);
 
     // Prepare message
     final message = Message()
@@ -250,6 +253,12 @@ class AlertService {
       return false;
     }
 
+    // Clean and format phone number (e.g. prepending +91 for standard Indian numbers if omitted)
+    String formattedNumber = number.replaceAll(RegExp(r'[\s\-()]'), '');
+    if (formattedNumber.length == 10 && !formattedNumber.startsWith('+')) {
+      formattedNumber = '+91$formattedNumber';
+    }
+
     // Try Textbee Gateway first if configured
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -266,13 +275,13 @@ class AlertService {
             "x-api-key": textbeeApiKey.trim(),
           },
           body: jsonEncode({
-            "recipients": [number],
+            "recipients": [formattedNumber],
             "message": message,
           }),
         );
 
         if (response.statusCode == 200 || response.statusCode == 201) {
-          print("AlertService: SMS successfully sent via Textbee Gateway to $number");
+          print("AlertService: SMS successfully sent via Textbee Gateway to $formattedNumber");
           return true;
         } else {
           print("AlertService: Textbee failed with status code ${response.statusCode}: ${response.body}");
@@ -285,18 +294,18 @@ class AlertService {
     // Fallback: local SIM-based SMS sending using native SmsManager MethodChannel
     try {
       final String result = await platform.invokeMethod('sendSms', {
-        'phoneNumber': number,
+        'phoneNumber': formattedNumber,
         'message': message,
       });
-      print("AlertService: Native SIM SMS sent successfully to $number. Result: $result");
+      print("AlertService: Native SIM SMS sent successfully to $formattedNumber. Result: $result");
       return true;
     } catch (e) {
-      print("AlertService: Native SIM SMS sending failed to $number: $e. Falling back to simulator log.");
+      print("AlertService: Native SIM SMS sending failed to $formattedNumber: $e. Falling back to simulator log.");
     }
 
     // fallback log output
     print("=================== SMS ALERT DISPATCH SIMULATOR ===================");
-    print("To: $number");
+    print("To: $formattedNumber");
     print("Message: $message");
     print("====================================================================");
     return true; // Simulate success in mock mode
