@@ -157,15 +157,16 @@ class AlertService {
     bool hospitalSent = false;
     bool emailSent = false;
 
-    // Send Alert 1: Parent SMS (sent directly via SIM card of this device)
-    if (parentPhone.trim().isNotEmpty) {
-      parentSent = await _sendSms(parentPhone, parentMsg);
-    }
+    // Send combined SMS to both Parent and Hospital using our optimized queue/batch dispatcher
+    List<String> smsRecipients = [];
+    if (parentPhone.trim().isNotEmpty) smsRecipients.add(parentPhone);
+    if (hospitalPhone.trim().isNotEmpty) smsRecipients.add(hospitalPhone);
 
-    // Send Alert 2: Nearest Hospital SMS (sent directly via SIM card of this device)
-    if (hospitalPhone.trim().isNotEmpty) {
-      hospitalSent = await _sendSms(hospitalPhone, hospitalMsg);
-    }
+    final String combinedSmsMsg = "CRITICAL ACCIDENT ALERT: $crashType detected! Driver: $name, Blood Group: $bloodGroup. Location: Lat: $lat, Lng: $lng. Map Link: $googleMapsLink";
+
+    bool smsStatus = await _sendSms(smsRecipients, combinedSmsMsg);
+    parentSent = smsStatus;
+    hospitalSent = smsStatus;
 
     // Send Alert 3: Email alerts (Parent & Hospital sent independently)
     final String parentEmail = userProfile['parentEmail'] ?? userProfile['email'] ?? "parent@email.com";
@@ -227,7 +228,13 @@ class AlertService {
     // Remove any spaces from App Password (e.g. "lvbb emvy vcdq zidk" becomes "lvbbemvyvcdqzidk")
     final String cleanPassword = password.replaceAll(' ', '');
 
-    final smtpServer = gmail(username, cleanPassword);
+    // Setup secure SmtpServer using STARTTLS port 587 (more reliable on mobile networks)
+    final smtpServer = SmtpServer('smtp.gmail.com',
+        port: 587,
+        ssl: false,
+        allowInsecure: true,
+        username: username,
+        password: cleanPassword);
 
     // Prepare message
     final message = Message()
@@ -247,16 +254,21 @@ class AlertService {
   }
 
   // Internal SMS dispatcher calling native SmsManager via MethodChannel or Textbee Gateway
-  Future<bool> _sendSms(String number, String message) async {
-    if (number.trim().isEmpty) {
-      print("AlertService: Cannot send SMS. Phone number is empty.");
+  Future<bool> _sendSms(List<String> numbers, String message) async {
+    List<String> validNumbers = numbers.where((n) => n.trim().isNotEmpty).toList();
+    if (validNumbers.isEmpty) {
+      print("AlertService: Cannot send SMS. No valid phone numbers.");
       return false;
     }
 
-    // Clean and format phone number (e.g. prepending +91 for standard Indian numbers if omitted)
-    String formattedNumber = number.replaceAll(RegExp(r'[\s\-()]'), '');
-    if (formattedNumber.length == 10 && !formattedNumber.startsWith('+')) {
-      formattedNumber = '+91$formattedNumber';
+    // Clean and format all phone numbers (prepending +91 for standard Indian numbers if omitted)
+    List<String> formattedNumbers = [];
+    for (var number in validNumbers) {
+      String formatted = number.replaceAll(RegExp(r'[\s\-()]'), '');
+      if (formatted.length == 10 && !formatted.startsWith('+')) {
+        formatted = '+91$formatted';
+      }
+      formattedNumbers.add(formatted);
     }
 
     // Try Textbee Gateway first if configured
@@ -275,13 +287,13 @@ class AlertService {
             "x-api-key": textbeeApiKey.trim(),
           },
           body: jsonEncode({
-            "recipients": [formattedNumber],
+            "recipients": formattedNumbers,
             "message": message,
           }),
         );
 
         if (response.statusCode == 200 || response.statusCode == 201) {
-          print("AlertService: SMS successfully sent via Textbee Gateway to $formattedNumber");
+          print("AlertService: SMS successfully sent via Textbee Gateway to $formattedNumbers");
           return true;
         } else {
           print("AlertService: Textbee failed with status code ${response.statusCode}: ${response.body}");
@@ -292,22 +304,21 @@ class AlertService {
     }
 
     // Fallback: local SIM-based SMS sending using native SmsManager MethodChannel
-    try {
-      final String result = await platform.invokeMethod('sendSms', {
-        'phoneNumber': formattedNumber,
-        'message': message,
-      });
-      print("AlertService: Native SIM SMS sent successfully to $formattedNumber. Result: $result");
-      return true;
-    } catch (e) {
-      print("AlertService: Native SIM SMS sending failed to $formattedNumber: $e. Falling back to simulator log.");
+    bool success = true;
+    for (var num in formattedNumbers) {
+      try {
+        final String result = await platform.invokeMethod('sendSms', {
+          'phoneNumber': num,
+          'message': message,
+        });
+        print("AlertService: Native SIM SMS sent successfully to $num. Result: $result");
+        // Delay 2 seconds to prevent SIM queue congestion
+        await Future.delayed(const Duration(seconds: 2));
+      } catch (e) {
+        print("AlertService: Native SIM SMS sending failed to $num: $e");
+        success = false;
+      }
     }
-
-    // fallback log output
-    print("=================== SMS ALERT DISPATCH SIMULATOR ===================");
-    print("To: $formattedNumber");
-    print("Message: $message");
-    print("====================================================================");
-    return true; // Simulate success in mock mode
+    return success;
   }
 }
