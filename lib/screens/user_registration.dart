@@ -241,13 +241,16 @@ class _UserRegistrationState extends State<UserRegistration> {
                     controller: _parentEmailController,
                     keyboardType: TextInputType.emailAddress,
                     validator: (val) {
-                      if (val != null && val.trim().isNotEmpty) {
-                        if (!val.contains('@') || !val.contains('.')) return "Please enter a valid email";
+                      if (val == null || val.trim().isEmpty) {
+                        return "Please enter parent's email address";
+                      }
+                      if (!val.contains('@') || !val.contains('.')) {
+                        return "Please enter a valid email address";
                       }
                       return null;
                     },
                     decoration: const InputDecoration(
-                      labelText: "Parent Emergency Email (Optional)",
+                      labelText: "Parent Emergency Email",
                       prefixIcon: Icon(Icons.email_outlined),
                       border: OutlineInputBorder(),
                     ),

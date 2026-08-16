@@ -43,6 +43,7 @@ dependencies:
   flutter_ringtone_player: ^4.0.0+4
   shared_preferences: ^2.3.2
   http: ^1.2.1
+  mailer: ^6.0.1
 
 dev_dependencies:
   flutter_test:

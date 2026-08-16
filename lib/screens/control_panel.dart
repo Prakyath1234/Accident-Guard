@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'sensor_monitoring.dart';
 import '../services/alert_service.dart';
 import '../services/database_service.dart';
@@ -19,9 +20,12 @@ class _ControlPanelState extends State<ControlPanel> {
   final _tokenController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailUrlController = TextEditingController();
+  final _textbeeApiKeyController = TextEditingController();
+  final _textbeeDeviceIdController = TextEditingController();
   
   bool _isTwilioConfigured = false;
   bool _isEmailConfigured = false;
+  bool _isTextbeeConfigured = false;
 
   Map<String, dynamic> get _driverProfile => _dbService.activeSessionUser ?? {
     'fullName': 'John Doe (Demo)',
@@ -36,6 +40,17 @@ class _ControlPanelState extends State<ControlPanel> {
     _emailUrlController.text = _dbService.getEmailDispatcherUrl() ?? '';
     _isEmailConfigured = _emailUrlController.text.trim().isNotEmpty;
     _updateTwilioConfig();
+    _loadTextbeeConfig();
+  }
+
+  void _loadTextbeeConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _textbeeApiKeyController.text = prefs.getString('textbee_api_key') ?? '';
+      _textbeeDeviceIdController.text = prefs.getString('textbee_device_id') ?? '';
+      _isTextbeeConfigured = _textbeeApiKeyController.text.trim().isNotEmpty &&
+          _textbeeDeviceIdController.text.trim().isNotEmpty;
+    });
   }
 
   @override
@@ -44,6 +59,8 @@ class _ControlPanelState extends State<ControlPanel> {
     _tokenController.dispose();
     _phoneController.dispose();
     _emailUrlController.dispose();
+    _textbeeApiKeyController.dispose();
+    _textbeeDeviceIdController.dispose();
     super.dispose();
   }
 
@@ -67,6 +84,19 @@ class _ControlPanelState extends State<ControlPanel> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Email Webhook URL applied!")),
+    );
+  }
+
+  void _updateTextbeeConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('textbee_api_key', _textbeeApiKeyController.text.trim());
+    await prefs.setString('textbee_device_id', _textbeeDeviceIdController.text.trim());
+    setState(() {
+      _isTextbeeConfigured = _textbeeApiKeyController.text.trim().isNotEmpty &&
+          _textbeeDeviceIdController.text.trim().isNotEmpty;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Textbee gateway configuration applied!")),
     );
   }
 
@@ -196,7 +226,7 @@ class _ControlPanelState extends State<ControlPanel> {
                 ),
                 const SizedBox(height: 24),
 
-                // Twilio config section
+                // Textbee config section
                 Card(
                   color: Colors.black.withOpacity(0.4),
                   shape: RoundedRectangleBorder(
@@ -211,61 +241,90 @@ class _ControlPanelState extends State<ControlPanel> {
                         Row(
                           children: [
                             Icon(
-                              _isTwilioConfigured ? Icons.sms : Icons.sms_failed,
-                              color: _isTwilioConfigured ? Colors.greenAccent : Colors.orangeAccent,
+                              _isTextbeeConfigured ? Icons.cloud_done : Icons.cloud_off,
+                              color: _isTextbeeConfigured ? Colors.greenAccent : Colors.orangeAccent,
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              "Twilio Configuration",
+                              "Textbee Gateway (+91 97319 71568)",
                               style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          _isTwilioConfigured
-                              ? "Live SMS Alerts Active"
-                              : "Running in SMS Simulator mode (Console logs instead). Add credentials to fire real SMS.",
+                          _isTextbeeConfigured
+                              ? "Live Gateway SMS Alerts Active (Sends from +91 97319 71568)"
+                              : "Not Configured. Add your Textbee credentials to send SMS through the gateway number.",
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: _isTwilioConfigured ? Colors.greenAccent.withOpacity(0.8) : Colors.white60,
+                            color: _isTextbeeConfigured ? Colors.greenAccent.withOpacity(0.8) : Colors.white60,
                           ),
                         ),
                         const SizedBox(height: 16),
                         TextField(
-                          controller: _sidController,
+                          controller: _textbeeApiKeyController,
                           decoration: const InputDecoration(
-                            labelText: "Twilio Account SID",
+                            labelText: "Textbee API Key",
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
                         const SizedBox(height: 12),
                         TextField(
-                          controller: _tokenController,
-                          obscureText: true,
+                          controller: _textbeeDeviceIdController,
                           decoration: const InputDecoration(
-                            labelText: "Twilio Auth Token",
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _phoneController,
-                          decoration: const InputDecoration(
-                            labelText: "Twilio Sender Phone Number (e.g. +1234567890)",
+                            labelText: "Textbee Device ID (for +91 97319 71568)",
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
-                          onPressed: _updateTwilioConfig,
+                          onPressed: _updateTextbeeConfig,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white10,
                             foregroundColor: Colors.white,
                           ),
-                          child: const Text("Save & Apply Config"),
+                          child: const Text("Save & Apply Textbee Gateway"),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Native SIM SMS status card
+                Card(
+                  color: Colors.black.withOpacity(0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: Colors.white10),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.sim_card,
+                              color: Colors.greenAccent,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              "Direct SIM SMS Active",
+                              style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          "Direct SMS is enabled! Upon crash detection, SIM-based SMS is sent immediately from this phone's SIM card directly to the registered emergency numbers. No third-party tools or internet connection is required for SMS delivery.",
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),

@@ -2,10 +2,15 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:twilio_flutter/twilio_flutter.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server.dart';
 import 'database_service.dart';
 
 class AlertService {
   final DatabaseService _dbService = DatabaseService();
+  static const platform = MethodChannel('com.example.accident_guard_system/sms');
 
   // Twilio credentials: Use configuration parameters or fall back to test credentials.
   // Standard Twilio test account details can be used, but since we are demonstrating,
@@ -105,7 +110,7 @@ class AlertService {
     // 3. Format SMS payloads
     final String name = userProfile['fullName'] ?? "Prakyath";
     final String bloodGroup = userProfile['bloodGroup'] ?? "O+";
-    final String parentPhone = userProfile['parentPhone'] ?? "+919113895419";
+    final String parentPhone = userProfile['parentPhone'] ?? "";
     final String googleMapsLink = "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
 
     final String parentMsg =
@@ -133,11 +138,15 @@ class AlertService {
     bool hospitalSent = false;
     bool emailSent = false;
 
-    // Send Alert 1: Parent SMS
-    parentSent = await _sendSms(parentPhone, parentMsg);
+    // Send Alert 1: Parent SMS (sent directly via SIM card of this device)
+    if (parentPhone.trim().isNotEmpty) {
+      parentSent = await _sendSms(parentPhone, parentMsg);
+    }
 
-    // Send Alert 2: Nearest Hospital SMS
-    hospitalSent = await _sendSms(hospitalPhone, hospitalMsg);
+    // Send Alert 2: Nearest Hospital SMS (sent directly via SIM card of this device)
+    if (hospitalPhone.trim().isNotEmpty) {
+      hospitalSent = await _sendSms(hospitalPhone, hospitalMsg);
+    }
 
     // Send Alert 3: Email alerts (Parent & Hospital)
     final String parentEmail = userProfile['parentEmail'] ?? userProfile['email'] ?? "parent@email.com";
@@ -180,64 +189,89 @@ class AlertService {
     };
   }
 
-  // Internal Email dispatcher with Webhook fallback
+  // Internal Email dispatcher using direct SMTP via mailer
   Future<bool> _sendEmail({
     required String parentEmail,
     required String hospitalEmail,
     required String subject,
     required String body,
   }) async {
-    final String? emailUrl = _dbService.getEmailDispatcherUrl();
-    if (emailUrl == null || emailUrl.isEmpty) {
-      print("AlertService: Email Dispatcher Webhook URL not configured. Running in Mock Email mode.");
-      print("=================== EMAIL ALERT SIMULATOR ===================");
-      print("To Parent Email: $parentEmail");
-      print("To Hospital Email: $hospitalEmail");
-      print("Subject: $subject");
-      print("Body:\n$body");
-      print("=============================================================");
-      return true;
+    final String username = 'accidentguard@gmail.com';
+    final String password = 'Shetty@123';
+
+    final smtpServer = gmail(username, password);
+
+    // Prepare message
+    final message = Message()
+      ..from = Address(username, 'Accident Guard System')
+      ..recipients.add(parentEmail)
+      ..subject = subject
+      ..text = body;
+
+    // Send to hospital too if valid
+    if (hospitalEmail.trim().isNotEmpty && hospitalEmail.contains('@') && hospitalEmail != 'hospital@email.com') {
+      message.recipients.add(hospitalEmail);
     }
 
     try {
-      final response = await http.post(
-        Uri.parse(emailUrl),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "parentEmail": parentEmail,
-          "hospitalEmail": hospitalEmail,
-          "subject": subject,
-          "body": body,
-        }),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        print("AlertService: Emergency emails successfully dispatched via Webhook.");
-        return true;
-      } else {
-        print("AlertService: Email Webhook failed with status code ${response.statusCode}: ${response.body}");
-      }
+      final sendReport = await send(message, smtpServer);
+      print('AlertService: SMTP Email sent successfully from $username: ${sendReport.toString()}');
+      return true;
     } catch (e) {
-      print("AlertService: Exception during email dispatch HTTP request: $e");
+      print('AlertService: SMTP Email sending failed: $e');
     }
     return false;
   }
 
-  // Internal SMS dispatcher with fallback logging
+  // Internal SMS dispatcher calling native SmsManager via MethodChannel or Textbee Gateway
   Future<bool> _sendSms(String number, String message) async {
-    if (_twilioInitialized) {
-      try {
-        await _twilioFlutter.sendSMS(
-          toNumber: number,
-          messageBody: message,
+    if (number.trim().isEmpty) {
+      print("AlertService: Cannot send SMS. Phone number is empty.");
+      return false;
+    }
+
+    // Try Textbee Gateway first if configured
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? textbeeApiKey = prefs.getString('textbee_api_key');
+      final String? textbeeDeviceId = prefs.getString('textbee_device_id');
+
+      if (textbeeApiKey != null && textbeeApiKey.trim().isNotEmpty &&
+          textbeeDeviceId != null && textbeeDeviceId.trim().isNotEmpty) {
+        final url = "https://api.textbee.dev/api/v1/gateway/devices/${textbeeDeviceId.trim()}/send-sms";
+        final response = await http.post(
+          Uri.parse(url),
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": textbeeApiKey.trim(),
+          },
+          body: jsonEncode({
+            "recipients": [number],
+            "message": message,
+          }),
         );
-        print("AlertService: SMS sent successfully to $number");
-        return true;
-      } catch (e) {
-        print("AlertService: Twilio failed to send to $number: $e. Logging message instead.");
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          print("AlertService: SMS successfully sent via Textbee Gateway to $number");
+          return true;
+        } else {
+          print("AlertService: Textbee failed with status code ${response.statusCode}: ${response.body}");
+        }
       }
-    } else {
-      print("AlertService: Twilio not initialized (Mock Mode).");
+    } catch (e) {
+      print("AlertService: Textbee gateway check/send failed: $e");
+    }
+
+    // Fallback: local SIM-based SMS sending using native SmsManager MethodChannel
+    try {
+      final String result = await platform.invokeMethod('sendSms', {
+        'phoneNumber': number,
+        'message': message,
+      });
+      print("AlertService: Native SIM SMS sent successfully to $number. Result: $result");
+      return true;
+    } catch (e) {
+      print("AlertService: Native SIM SMS sending failed to $number: $e. Falling back to simulator log.");
     }
 
     // fallback log output
