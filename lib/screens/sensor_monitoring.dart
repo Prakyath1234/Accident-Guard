@@ -40,6 +40,7 @@ class _SensorMonitoringState extends State<SensorMonitoring> {
   void initState() {
     super.initState();
     _loadDrivers();
+    widget.alertService.requestSmsPermission();
     _addLog("System initialized. Select a driver profile below to start monitoring.");
   }
 

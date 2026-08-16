@@ -42,6 +42,14 @@ class AlertService {
     }
   }
 
+  Future<void> requestSmsPermission() async {
+    try {
+      await platform.invokeMethod('requestSmsPermission');
+    } catch (e) {
+      print("AlertService: SMS permission request error: $e");
+    }
+  }
+
   // Core routine: Fetch location, query nearest hospital, and dispatch alerts
   Future<Map<String, dynamic>> sendEmergencyAlerts({
     required Map<String, dynamic> userProfile,
