@@ -53,7 +53,7 @@ class _ControlPanelState extends State<ControlPanel> {
       _isTextbeeConfigured = _textbeeApiKeyController.text.trim().isNotEmpty &&
           _textbeeDeviceIdController.text.trim().isNotEmpty;
       _smtpEmailController.text = prefs.getString('smtp_email') ?? 'accidentguard@gmail.com';
-      _smtpPasswordController.text = prefs.getString('smtp_password') ?? 'Shetty@123';
+      _smtpPasswordController.text = prefs.getString('smtp_password') ?? 'lvbb emvy vcdq zidk';
     });
   }
 

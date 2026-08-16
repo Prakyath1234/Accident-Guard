@@ -222,7 +222,7 @@ class AlertService {
     // Load credentials dynamically
     final prefs = await SharedPreferences.getInstance();
     final String username = prefs.getString('smtp_email') ?? 'accidentguard@gmail.com';
-    final String password = prefs.getString('smtp_password') ?? 'Shetty@123';
+    final String password = prefs.getString('smtp_password') ?? 'lvbb emvy vcdq zidk';
 
     // Remove any spaces from App Password (e.g. "lvbb emvy vcdq zidk" becomes "lvbbemvyvcdqzidk")
     final String cleanPassword = password.replaceAll(' ', '');
