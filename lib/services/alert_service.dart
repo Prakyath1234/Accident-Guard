@@ -52,6 +52,11 @@ class AlertService {
     // 1. Fetch Location
     Position? position;
     try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print("AlertService: Location services are disabled.");
+      }
+
       // Check location permission
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -60,10 +65,16 @@ class AlertService {
 
       if (permission == LocationPermission.always ||
           permission == LocationPermission.whileInUse) {
-        position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 10),
-        );
+        // Try getting exact current position
+        try {
+          position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.best,
+            timeLimit: const Duration(seconds: 6),
+          );
+        } catch (e) {
+          print("AlertService: getCurrentPosition failed/timed out, trying last known position: $e");
+          position = await Geolocator.getLastKnownPosition();
+        }
       } else {
         print("AlertService: Location permission denied, using mock coordinates");
       }
@@ -148,29 +159,29 @@ class AlertService {
       hospitalSent = await _sendSms(hospitalPhone, hospitalMsg);
     }
 
-    // Send Alert 3: Email alerts (Parent & Hospital)
+    // Send Alert 3: Email alerts (Parent & Hospital sent independently)
     final String parentEmail = userProfile['parentEmail'] ?? userProfile['email'] ?? "parent@email.com";
     final String hospitalEmail = nearestHospital != null ? nearestHospital['email'] : "hospital@email.com";
 
-    emailSent = await _sendEmail(
-      parentEmail: parentEmail,
-      hospitalEmail: hospitalEmail,
-      subject: "🚨 CRITICAL ACCIDENT ALERT: $name",
-      body: "An accident was detected for $name.\n\n"
-            "Driver Details:\n"
-            "- Name: $name\n"
-            "- Blood Group: $bloodGroup\n"
-            "- Parent Phone: $parentPhone\n"
-            "- Parent Email: $parentEmail\n"
-            "- Device: Driver Mobile App\n\n"
-            "Crash Telemetry:\n"
-            "- Impact Severity: $crashType\n"
-            "- Exact Latitude: $lat\n"
-            "- Exact Longitude: $lng\n\n"
-            "Google Maps Emergency Routing Link:\n"
-            "$googleMapsLink\n\n"
-            "This is an automated distress broadcast from the Accident Guard System."
-    );
+    bool parentEmailSent = false;
+    if (parentEmail.trim().isNotEmpty && parentEmail.contains('@')) {
+      parentEmailSent = await _sendEmail(
+        recipientEmail: parentEmail,
+        subject: "🚨 CRITICAL ACCIDENT ALERT: $name",
+        body: parentMsg,
+      );
+    }
+
+    bool hospitalEmailSent = false;
+    if (hospitalEmail.trim().isNotEmpty && hospitalEmail.contains('@') && hospitalEmail != 'hospital@email.com') {
+      hospitalEmailSent = await _sendEmail(
+        recipientEmail: hospitalEmail,
+        subject: "🚨 EMERGENCY ACCIDENT ALERT: $name",
+        body: hospitalMsg,
+      );
+    }
+
+    emailSent = parentEmailSent || hospitalEmailSent;
 
     return {
       'lat': lat,
@@ -191,11 +202,14 @@ class AlertService {
 
   // Internal Email dispatcher using direct SMTP via mailer
   Future<bool> _sendEmail({
-    required String parentEmail,
-    required String hospitalEmail,
+    required String recipientEmail,
     required String subject,
     required String body,
   }) async {
+    if (recipientEmail.trim().isEmpty || !recipientEmail.contains('@')) {
+      print("AlertService: Cannot send SMTP Email. Invalid recipient: $recipientEmail");
+      return false;
+    }
     final String username = 'accidentguard@gmail.com';
     final String password = 'Shetty@123';
 
@@ -204,21 +218,16 @@ class AlertService {
     // Prepare message
     final message = Message()
       ..from = Address(username, 'Accident Guard System')
-      ..recipients.add(parentEmail)
+      ..recipients.add(recipientEmail.trim())
       ..subject = subject
       ..text = body;
 
-    // Send to hospital too if valid
-    if (hospitalEmail.trim().isNotEmpty && hospitalEmail.contains('@') && hospitalEmail != 'hospital@email.com') {
-      message.recipients.add(hospitalEmail);
-    }
-
     try {
       final sendReport = await send(message, smtpServer);
-      print('AlertService: SMTP Email sent successfully from $username: ${sendReport.toString()}');
+      print('AlertService: SMTP Email sent successfully to $recipientEmail: ${sendReport.toString()}');
       return true;
     } catch (e) {
-      print('AlertService: SMTP Email sending failed: $e');
+      print('AlertService: SMTP Email sending failed to $recipientEmail: $e');
     }
     return false;
   }

@@ -53,11 +53,12 @@ class _SensorMonitoringState extends State<SensorMonitoring> {
     try {
       final activeUser = _dbService.activeSessionUser;
       if (activeUser != null) {
+        final freshProfile = await _dbService.getCurrentUserProfile(activeUser['uid'] ?? '');
         setState(() {
-          _availableDrivers = [activeUser];
-          _selectedDriver = activeUser;
+          _availableDrivers = [freshProfile ?? activeUser];
+          _selectedDriver = freshProfile ?? activeUser;
         });
-        _addLog("Active Driver profile loaded: ${activeUser['fullName']} (${activeUser['email']})");
+        _addLog("Active Driver profile loaded: ${_selectedDriver!['fullName']} (${_selectedDriver!['email']})");
       } else {
         final defaultDriver = {
           'uid': 'mock_driver_1',
@@ -65,6 +66,7 @@ class _SensorMonitoringState extends State<SensorMonitoring> {
           'fullName': 'Prakyath',
           'bloodGroup': 'O+',
           'parentPhone': '+919113895413',
+          'parentEmail': 'shettyprakyathp@gmail.com',
           'role': 'driver',
         };
         setState(() {
