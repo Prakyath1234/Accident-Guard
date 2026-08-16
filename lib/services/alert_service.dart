@@ -218,8 +218,11 @@ class AlertService {
       print("AlertService: Cannot send SMTP Email. Invalid recipient: $recipientEmail");
       return false;
     }
-    final String username = 'accidentguard@gmail.com';
-    final String password = 'Shetty@123';
+
+    // Load credentials dynamically
+    final prefs = await SharedPreferences.getInstance();
+    final String username = prefs.getString('smtp_email') ?? 'accidentguard@gmail.com';
+    final String password = prefs.getString('smtp_password') ?? 'Shetty@123';
 
     final smtpServer = gmail(username, password);
 
@@ -232,10 +235,10 @@ class AlertService {
 
     try {
       final sendReport = await send(message, smtpServer);
-      print('AlertService: SMTP Email sent successfully to $recipientEmail: ${sendReport.toString()}');
+      print('AlertService: SMTP Email sent successfully to $recipientEmail via $username: ${sendReport.toString()}');
       return true;
     } catch (e) {
-      print('AlertService: SMTP Email sending failed to $recipientEmail: $e');
+      print('AlertService: SMTP Email sending failed to $recipientEmail via $username: $e');
     }
     return false;
   }

@@ -22,6 +22,8 @@ class _ControlPanelState extends State<ControlPanel> {
   final _emailUrlController = TextEditingController();
   final _textbeeApiKeyController = TextEditingController();
   final _textbeeDeviceIdController = TextEditingController();
+  final _smtpEmailController = TextEditingController();
+  final _smtpPasswordController = TextEditingController();
   
   bool _isTwilioConfigured = false;
   bool _isEmailConfigured = false;
@@ -40,16 +42,18 @@ class _ControlPanelState extends State<ControlPanel> {
     _emailUrlController.text = _dbService.getEmailDispatcherUrl() ?? '';
     _isEmailConfigured = _emailUrlController.text.trim().isNotEmpty;
     _updateTwilioConfig();
-    _loadTextbeeConfig();
+    _loadConfigs();
   }
 
-  void _loadTextbeeConfig() async {
+  void _loadConfigs() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _textbeeApiKeyController.text = prefs.getString('textbee_api_key') ?? '';
       _textbeeDeviceIdController.text = prefs.getString('textbee_device_id') ?? '';
       _isTextbeeConfigured = _textbeeApiKeyController.text.trim().isNotEmpty &&
           _textbeeDeviceIdController.text.trim().isNotEmpty;
+      _smtpEmailController.text = prefs.getString('smtp_email') ?? 'accidentguard@gmail.com';
+      _smtpPasswordController.text = prefs.getString('smtp_password') ?? 'Shetty@123';
     });
   }
 
@@ -61,6 +65,8 @@ class _ControlPanelState extends State<ControlPanel> {
     _emailUrlController.dispose();
     _textbeeApiKeyController.dispose();
     _textbeeDeviceIdController.dispose();
+    _smtpEmailController.dispose();
+    _smtpPasswordController.dispose();
     super.dispose();
   }
 
@@ -77,13 +83,12 @@ class _ControlPanelState extends State<ControlPanel> {
     });
   }
 
-  void _updateEmailConfig() {
-    _dbService.saveEmailDispatcherUrl(_emailUrlController.text.trim());
-    setState(() {
-      _isEmailConfigured = _emailUrlController.text.trim().isNotEmpty;
-    });
+  void _updateSmtpConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('smtp_email', _smtpEmailController.text.trim());
+    await prefs.setString('smtp_password', _smtpPasswordController.text.trim());
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Email Webhook URL applied!")),
+      const SnackBar(content: Text("SMTP Email Credentials applied successfully!")),
     );
   }
 
@@ -346,44 +351,52 @@ class _ControlPanelState extends State<ControlPanel> {
                       children: [
                         Row(
                           children: [
-                            Icon(
-                              _isEmailConfigured ? Icons.mark_email_read : Icons.mail_outline,
-                              color: _isEmailConfigured ? Colors.greenAccent : Colors.orangeAccent,
+                            const Icon(
+                              Icons.mail_outline,
+                              color: Colors.greenAccent,
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              "Email Dispatcher Config",
+                              "Gmail SMTP Configuration",
                               style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          _isEmailConfigured
-                              ? "Gmail Fallback Alerts Active"
-                              : "Running in Email Simulator mode (Logs instead). Enter a Google Apps Webhook URL to dispatch real emails.",
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: _isEmailConfigured ? Colors.greenAccent.withOpacity(0.8) : Colors.white60,
+                        const Text(
+                          "Configure the Gmail SMTP sender details. Important: If your Gmail has 2-Step Verification enabled, you must generate and use a 16-character App Password (e.g. 'abcd efgh ijkl mnop') instead of your normal account password.",
+                          style: TextStyle(
+                            color: Colors.white60,
+                            fontSize: 13,
                           ),
                         ),
                         const SizedBox(height: 16),
                         TextField(
-                          controller: _emailUrlController,
+                          controller: _smtpEmailController,
                           decoration: const InputDecoration(
-                            labelText: "Google Apps Script URL",
-                            helperText: "Paste your published Apps Script Web App URL",
+                            labelText: "Sender Gmail Address",
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _smtpPasswordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: "Gmail Password / App Password",
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
-                          onPressed: _updateEmailConfig,
+                          onPressed: _updateSmtpConfig,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white10,
                             foregroundColor: Colors.white,
                           ),
-                          child: const Text("Save & Apply Config"),
+                          child: const Text("Save & Apply SMTP Credentials"),
                         ),
                       ],
                     ),
