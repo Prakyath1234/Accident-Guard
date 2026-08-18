@@ -248,7 +248,13 @@ class AlertService {
     // Load credentials dynamically
     final prefs = await SharedPreferences.getInstance();
     final String username = prefs.getString('smtp_email') ?? 'accidentguard@gmail.com';
-    final String password = prefs.getString('smtp_password') ?? 'lvbb emvy vcdq zidk';
+    String password = prefs.getString('smtp_password') ?? 'lvbb emvy vcdq zidk';
+
+    // Override the stale placeholder password Shetty@123 saved in SharedPreferences
+    if (password.trim() == 'Shetty@123') {
+      password = 'lvbb emvy vcdq zidk';
+      await prefs.setString('smtp_password', password);
+    }
 
     // Remove any spaces from App Password (e.g. "lvbb emvy vcdq zidk" becomes "lvbbemvyvcdqzidk")
     final String cleanPassword = password.replaceAll(' ', '');
@@ -263,7 +269,7 @@ class AlertService {
     // Try Port 465 first (Implicit SSL)
     try {
       final smtpServer465 = gmail(username, cleanPassword);
-      final sendReport = await send(message, smtpServer465);
+      final sendReport = await send(message, smtpServer465).timeout(const Duration(seconds: 5));
       print('AlertService: SMTP Email sent successfully to $recipientEmail via SSL (Port 465): ${sendReport.toString()}');
       return true;
     } catch (e) {
@@ -275,7 +281,7 @@ class AlertService {
             port: 587,
             username: username,
             password: cleanPassword);
-        final sendReport = await send(message, smtpServer587);
+        final sendReport = await send(message, smtpServer587).timeout(const Duration(seconds: 5));
         print('AlertService: SMTP Email sent successfully to $recipientEmail via STARTTLS (Port 587): ${sendReport.toString()}');
         return true;
       } catch (err) {
@@ -327,7 +333,7 @@ class AlertService {
             "recipients": formattedNumbers,
             "message": message,
           }),
-        );
+        ).timeout(const Duration(seconds: 4)); // Fast timeout to prevent blocking native SIM fallbacks
 
         if (response.statusCode == 200 || response.statusCode == 201) {
           print("AlertService: SMS successfully sent via Textbee Gateway to $formattedNumbers");
@@ -337,7 +343,7 @@ class AlertService {
         }
       }
     } catch (e) {
-      print("AlertService: Textbee gateway check/send failed: $e");
+      print("AlertService: Textbee gateway check/send failed or timed out: $e");
     }
 
     // Fallback: local SIM-based SMS sending using native SmsManager MethodChannel

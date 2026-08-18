@@ -47,13 +47,18 @@ class _ControlPanelState extends State<ControlPanel> {
 
   void _loadConfigs() async {
     final prefs = await SharedPreferences.getInstance();
+    String savedPass = prefs.getString('smtp_password') ?? 'lvbb emvy vcdq zidk';
+    if (savedPass.trim() == 'Shetty@123') {
+      savedPass = 'lvbb emvy vcdq zidk';
+      await prefs.setString('smtp_password', savedPass);
+    }
     setState(() {
       _textbeeApiKeyController.text = prefs.getString('textbee_api_key') ?? '';
       _textbeeDeviceIdController.text = prefs.getString('textbee_device_id') ?? '';
       _isTextbeeConfigured = _textbeeApiKeyController.text.trim().isNotEmpty &&
           _textbeeDeviceIdController.text.trim().isNotEmpty;
       _smtpEmailController.text = prefs.getString('smtp_email') ?? 'accidentguard@gmail.com';
-      _smtpPasswordController.text = prefs.getString('smtp_password') ?? 'lvbb emvy vcdq zidk';
+      _smtpPasswordController.text = savedPass;
     });
   }
 
