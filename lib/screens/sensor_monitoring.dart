@@ -308,6 +308,33 @@ class _SensorMonitoringState extends State<SensorMonitoring> {
                   ),
                   textAlign: TextAlign.center,
                 ),
+                
+                // Bypass timer and send alerts immediately
+                ElevatedButton(
+                  onPressed: () {
+                    _countdownTimer?.cancel();
+                    _dispatchEmergencyBroadcast();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orangeAccent,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 8,
+                  ),
+                  child: const Text(
+                    "SEND NOW (BYPASS TIMER)",
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
                 const Spacer(),
 
                 // Giant easy-to-tap safety override button

@@ -228,14 +228,6 @@ class AlertService {
     // Remove any spaces from App Password (e.g. "lvbb emvy vcdq zidk" becomes "lvbbemvyvcdqzidk")
     final String cleanPassword = password.replaceAll(' ', '');
 
-    // Setup secure SmtpServer using STARTTLS port 587 (more reliable on mobile networks)
-    final smtpServer = SmtpServer('smtp.gmail.com',
-        port: 587,
-        ssl: false,
-        allowInsecure: true,
-        username: username,
-        password: cleanPassword);
-
     // Prepare message
     final message = Message()
       ..from = Address(username, 'Accident Guard System')
@@ -243,12 +235,32 @@ class AlertService {
       ..subject = subject
       ..text = body;
 
+    // Try Port 465 first (Implicit SSL)
     try {
-      final sendReport = await send(message, smtpServer);
-      print('AlertService: SMTP Email sent successfully to $recipientEmail via $username: ${sendReport.toString()}');
+      final smtpServer465 = gmail(username, cleanPassword);
+      final sendReport = await send(message, smtpServer465);
+      print('AlertService: SMTP Email sent successfully to $recipientEmail via SSL (Port 465): ${sendReport.toString()}');
       return true;
     } catch (e) {
-      print('AlertService: SMTP Email sending failed to $recipientEmail via $username: $e');
+      print('AlertService: SMTP Port 465 failed. Trying Port 587 (STARTTLS). Error: $e');
+
+      // Try Port 587 (STARTTLS)
+      try {
+        final smtpServer587 = SmtpServer('smtp.gmail.com',
+            port: 587,
+            username: username,
+            password: cleanPassword);
+        final sendReport = await send(message, smtpServer587);
+        print('AlertService: SMTP Email sent successfully to $recipientEmail via STARTTLS (Port 587): ${sendReport.toString()}');
+        return true;
+      } catch (err) {
+        print('AlertService: SMTP Email sending failed to $recipientEmail via both ports: $err');
+        if (err is MailerException) {
+          for (var p in err.problems) {
+            print('Problem: ${p.code}: ${p.msg}');
+          }
+        }
+      }
     }
     return false;
   }
