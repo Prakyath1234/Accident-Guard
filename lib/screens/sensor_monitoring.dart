@@ -148,6 +148,9 @@ class _SensorMonitoringState extends State<SensorMonitoring> {
     // Pause normal sensor listener to prevent duplicate triggers
     _sensorService.stopListening();
 
+    // Start background pre-fetching of location immediately during the 30s countdown
+    widget.alertService.preFetchLocation();
+
     setState(() {
       _isEmergencyState = true;
       _isEngineActive = false;

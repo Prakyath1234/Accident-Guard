@@ -42,6 +42,24 @@ class AlertService {
     }
   }
 
+  Position? _cachedPosition;
+
+  Future<void> preFetchLocation() async {
+    print("AlertService: Starting background GPS pre-fetch...");
+    try {
+      _cachedPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      );
+      print("AlertService: Background GPS pre-fetched successfully: $_cachedPosition");
+    } catch (e) {
+      print("AlertService: GPS pre-fetch failed, trying last known: $e");
+      try {
+        _cachedPosition = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+    }
+  }
+
   Future<void> requestSmsPermission() async {
     try {
       await platform.invokeMethod('requestSmsPermission');
@@ -74,14 +92,21 @@ class AlertService {
       if (permission == LocationPermission.always ||
           permission == LocationPermission.whileInUse) {
         // Try getting exact current position
-        try {
-          position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.best,
-            timeLimit: const Duration(seconds: 6),
-          );
-        } catch (e) {
-          print("AlertService: getCurrentPosition failed/timed out, trying last known position: $e");
-          position = await Geolocator.getLastKnownPosition();
+        // Use pre-fetched location if available, otherwise fetch with a fast 2-second lock
+        if (_cachedPosition != null) {
+          position = _cachedPosition;
+          print("AlertService: Using background pre-fetched GPS location: $position");
+          _cachedPosition = null;
+        } else {
+          try {
+            position = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.low,
+              timeLimit: const Duration(seconds: 2),
+            );
+          } catch (e) {
+            print("AlertService: Fast getCurrentPosition failed/timed out, trying last known position: $e");
+            position = await Geolocator.getLastKnownPosition();
+          }
         }
       } else {
         print("AlertService: Location permission denied, using mock coordinates");
